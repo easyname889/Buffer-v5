@@ -4,3 +4,8 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

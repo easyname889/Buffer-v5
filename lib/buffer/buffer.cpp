@@ -122,9 +122,11 @@ static uint32_t chain_pulse_start_time = 0;
 #ifdef Y_JUNCTION_SENSOR
 // Shared 4-in-1 Y-junction filament sensor (CHAIN_Y_SENSOR_PIN / PB14).
 // Sensor reads CLEAR when the junction has no filament in it.
-#define Y_SENSOR_CLEAR_LEVEL HIGH       // flip to LOW if bench test #1 shows inverted
+#define Y_SENSOR_CLEAR_LEVEL HIGH       // flip to LOW if bench test shows inverted
 static bool y_path_clear = false;       // debounced sensor state
-static bool y_feed_latch = false;       // set once this unit is cleared to feed
+#ifndef FRONT_BUFFER_STANDALONE
+static bool y_feed_latch = false;       // back buffer: latched on once cleared to feed
+#endif
 #endif
 
 
@@ -482,7 +484,9 @@ static void sensor_debug_dump(void)
 	Serial.print(" err=");        Serial.print(is_error);
 #ifdef Y_JUNCTION_SENSOR
 	Serial.print(" | yClear=");   Serial.print(y_path_clear);
+#ifndef FRONT_BUFFER_STANDALONE
 	Serial.print(" yLatch=");     Serial.print(y_feed_latch);
+#endif
 #endif
 	Serial.print(" | k1=");       Serial.print(buffer.key1);
 	Serial.print(" k2=");         Serial.print(buffer.key2);
@@ -604,7 +608,7 @@ static void set_token_state(bool new_state)
 	has_token=new_state;
 	uint8_t token_value=new_state?1:0;
 	EEPROM.put(EEPROM_ADDR_CHAIN_TOKEN, token_value);
-#ifdef Y_JUNCTION_SENSOR
+#if defined(Y_JUNCTION_SENSOR) && !defined(FRONT_BUFFER_STANDALONE)
 	// Token ownership changed - require a fresh Y-junction clear check
 	// before this unit is allowed to feed again.
 	y_feed_latch=false;
@@ -844,6 +848,19 @@ void motor_control(void)
 		}
 	}
 #endif
+#endif
+
+#if defined(FRONT_BUFFER_STANDALONE) && defined(Y_JUNCTION_SENSOR)
+	// Front buffer runout backstop: the front unit has no filament sensor
+	// of its own, so it would otherwise feed dry until the 60s timeout.
+	// Stop when the Y-junction reads empty AND our own dancer arm has
+	// bottomed out (zone Low) — i.e. nothing arriving and our buffered
+	// loop is exhausted. Brief Y-empty during back-buffer hand-offs is
+	// ridden out by the loop. Auto-resumes when filament returns at Y.
+	if(y_path_clear&&get_auto_zone()==AutoZoneLow){
+		apply_motor_command(Stop, STOP);
+		return;
+	}
 #endif
 
 	update_auto_feed(cur_times);
