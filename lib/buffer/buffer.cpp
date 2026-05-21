@@ -42,6 +42,7 @@ TMC2209Stepper driver(UART, UART, R_SENSE, DRIVER_ADDRESS);
 Buffer buffer={0};//存储个传感器状态
 Motor_State motor_state=Stop;
 static Motor_State last_motor_state=Stop;
+static int32_t last_vactual_command=STOP;
 
 bool is_front=false;//前进标志位
 uint32_t front_time=0;//前进时间
@@ -86,6 +87,45 @@ const int EEPROM_ADDR_STEPS = 4;
 const int EEPROM_ADDR_ENCODER_LENGTH = 8;
 const int EEPROM_ADDR_ERROR_SCALE = 12;
 const int EEPROM_ADDR_SPEED = 16;
+const int EEPROM_ADDR_CHAIN_TOKEN = 20;
+
+enum AutoZone
+{
+	AutoZoneLow=0,
+	AutoZoneWindow,
+	AutoZoneHigh,
+	AutoZoneSafety
+};
+
+static const uint32_t SENSOR_DEBOUNCE_MS = 15;
+static const uint32_t AUTO_STEP_INTERVAL_MS = 100;
+static const uint32_t AUTO_DECAY_INTERVAL_MS = 200;
+static const uint32_t CHAIN_PULSE_MS = 250;
+static const uint32_t CHAIN_EMPTY_FORWARD_COOLDOWN_MS = 60000;
+static const uint8_t AUTO_BASE_PERCENT = 100;
+static const uint8_t AUTO_MIN_PERCENT = 20;
+static const uint8_t AUTO_MAX_PERCENT = 150;
+static const uint8_t AUTO_STEP_PERCENT = 10;
+static const uint8_t AUTO_DECAY_PERCENT = 5;
+static const uint8_t DEFAULT_CHAIN_TOKEN = 0;
+
+static uint8_t speed_trim_percent = AUTO_BASE_PERCENT;
+static uint32_t last_speed_adjust_time = 0;
+static uint32_t last_speed_decay_time = 0;
+static uint32_t last_empty_forward_time = 0;
+static AutoZone last_auto_zone = AutoZoneWindow;
+static bool has_token = DEFAULT_CHAIN_TOKEN;
+static bool chain_in_active = false;
+static bool chain_pulse_active = false;
+static uint32_t chain_pulse_start_time = 0;
+
+#ifdef Y_JUNCTION_SENSOR
+// Shared 4-in-1 Y-junction filament sensor (CHAIN_Y_SENSOR_PIN / PB14).
+// Sensor reads CLEAR when the junction has no filament in it.
+#define Y_SENSOR_CLEAR_LEVEL HIGH       // flip to LOW if bench test #1 shows inverted
+static bool y_path_clear = false;       // debounced sensor state
+static bool y_feed_latch = false;       // set once this unit is cleared to feed
+#endif
 
 
 //独立看门狗
@@ -124,6 +164,23 @@ void Blockage_Detect(void);
 void Main_Logic(void);
 float fastAtof(const char *s);
 void Signal_Dir_Init(void);
+static bool debounce_input(uint8_t index, bool raw_value);
+static bool filament_missing(void);
+static AutoZone get_auto_zone(void);
+#ifdef SENSOR_DEBUG
+static void sensor_debug_dump(void);
+#endif
+static void reset_speed_controller(uint32_t now);
+static void adjust_speed_trim(int8_t delta_percent);
+static void decay_speed_trim(void);
+static int32_t speed_percent_to_vactual(uint8_t percent);
+static void apply_motor_command(Motor_State desired_state, int32_t vactual_value);
+static void set_token_state(bool new_state);
+static void start_chain_pulse(uint32_t now);
+static void pass_token_to_next(uint32_t now);
+static void receive_chain_token(uint32_t now);
+static void update_chain_output(uint32_t now);
+static void update_auto_feed(uint32_t now);
 // void Buffer_S3_IT_Callback(void);
 // void Buffer_S2_IT_Callback(void);
 // void Buffer_S1_IT_Callback(void);
@@ -167,6 +224,15 @@ void buffer_init(){
   }
   VACTRUAL_VALUE=(uint32_t)(SPEED*Move_Divide_NUM*200/60/0.715) ;  //VACTUAL寄存器值
 
+  uint8_t token_state=0xff;
+  EEPROM.get(EEPROM_ADDR_CHAIN_TOKEN, token_state);
+  if(token_state>1){
+  	token_state=DEFAULT_CHAIN_TOKEN;
+  	EEPROM.put(EEPROM_ADDR_CHAIN_TOKEN, token_state);
+  }
+  has_token=(token_state==1);
+  reset_speed_controller(millis());
+
 
 
   timer.pause();
@@ -181,7 +247,17 @@ void buffer_init(){
 void buffer_loop()
 {
 	uint32_t lastToggleTime = 0; // 记录上次切换的时间
-	
+
+#ifdef SENSOR_DEBUG
+#ifdef FRONT_BUFFER_STANDALONE
+	Serial.println("=== LLLP FRONT / STANDALONE (debug build) ===");
+	Serial.println("no token gate, fil sensor ignored — always feeds");
+#else
+	Serial.println("=== LLLP BACK / CHAINED (debug build) ===");
+#endif
+	Serial.println("hall blocked=1 clear=0 | filSW hasFil=0 noFil=1 | keys pressed=0 | chainIn active=1");
+#endif
+
 	while (1)
 	{
 		uint32_t nowTime=millis();
@@ -231,6 +307,9 @@ void buffer_loop()
 		}
 		// 1、读取各传感器的值
 		read_sensor_state();
+#ifdef SENSOR_DEBUG
+		sensor_debug_dump();
+#endif
 		if(connet_mdm_flag) Blockage_Detect();
 		motor_control();
 		USB_Serial_Analys();
@@ -285,6 +364,14 @@ void buffer_sensor_init(){
   pinMode(FRONT_SIGNAL_PIN,INPUT_PULLUP);
   pinMode(BACK_SIGNAL_PIN,INPUT_PULLUP);
 
+#ifdef Y_JUNCTION_SENSOR
+  // Shared Y-junction sensor. Plain INPUT (no pull-up): the sensor is
+  // push-pull and PB14 is a 5V-tolerant FT pin, so the 3-5V signal wires
+  // straight in. Do NOT use INPUT_PULLUP - an enabled pull-up leaks current
+  // into VDD when a 5V high is applied (outside clean FT spec).
+  pinMode(CHAIN_Y_SENSOR_PIN,INPUT);
+#endif
+
 }
 
 void buffer_motor_init(){
@@ -314,12 +401,295 @@ void buffer_motor_init(){
 **/
 void read_sensor_state(void)
 {
-	buffer.buffer1_pos1_sensor_state= digitalRead(HALL3);
-	buffer.buffer1_pos2_sensor_state= digitalRead(HALL2);	
-	buffer.buffer1_pos3_sensor_state= digitalRead(HALL1);		
-	buffer.buffer1_material_swtich_state=digitalRead(ENDSTOP_3);	
+	buffer.buffer1_pos1_sensor_state= debounce_input(0, digitalRead(HALL3));
+	buffer.buffer1_pos2_sensor_state= debounce_input(1, digitalRead(HALL2));	
+	buffer.buffer1_pos3_sensor_state= debounce_input(2, digitalRead(HALL1));		
+	buffer.buffer1_material_swtich_state=debounce_input(3, digitalRead(ENDSTOP_3));	
+	chain_in_active=debounce_input(4, digitalRead(FRONT_SIGNAL_PIN)==LOW);
+#ifdef Y_JUNCTION_SENSOR
+	y_path_clear=debounce_input(5, digitalRead(CHAIN_Y_SENSOR_PIN)==Y_SENSOR_CLEAR_LEVEL);
+#endif
 	buffer.key1=digitalRead(KEY1);
 	buffer.key2=digitalRead(KEY2);
+}
+
+static bool debounce_input(uint8_t index, bool raw_value)
+{
+	static bool stable_state[6]={0};
+	static bool last_raw_state[6]={0};
+	static uint32_t last_change_time[6]={0};
+	uint32_t now=millis();
+
+	if(raw_value!=last_raw_state[index]){
+		last_raw_state[index]=raw_value;
+		last_change_time[index]=now;
+	}
+
+	if(now-last_change_time[index]>=SENSOR_DEBOUNCE_MS){
+		stable_state[index]=raw_value;
+	}
+
+	return stable_state[index];
+}
+
+static bool filament_missing(void)
+{
+#ifdef FRONT_BUFFER_STANDALONE
+	// Standalone front buffer: fil sensor is not a feed gate. The back
+	// buffers own runout detection; the front unit just pushes what it gets.
+	return false;
+#else
+	if(connet_mdm_flag){
+		return buffer.buffer1_material_swtich_state && !digitalRead(MDM_DPIN);
+	}
+	return buffer.buffer1_material_swtich_state;
+#endif
+}
+
+static AutoZone get_auto_zone(void)
+{
+	if(buffer.buffer1_pos3_sensor_state) return AutoZoneSafety;
+	if(buffer.buffer1_pos2_sensor_state) return AutoZoneHigh;
+	if(buffer.buffer1_pos1_sensor_state) return AutoZoneLow;
+	return AutoZoneWindow;
+}
+
+#ifdef SENSOR_DEBUG
+// Throttled live sensor dump (~200ms) over USB serial. Compiled in only
+// when SENSOR_DEBUG is defined (see the *_debug envs in platformio.ini).
+static void sensor_debug_dump(void)
+{
+	static uint32_t last_dump=0;
+	uint32_t now=millis();
+	if(now-last_dump<200) return;
+	last_dump=now;
+
+	AutoZone zone=get_auto_zone();
+	const char* zn = zone==AutoZoneSafety?"SAFETY":
+	                 zone==AutoZoneHigh  ?"HIGH"  :
+	                 zone==AutoZoneLow   ?"LOW"   :"WINDOW";
+	const char* mt = motor_state==Forward?"FWD":
+	                 motor_state==Back   ?"BACK":"STOP";
+
+	Serial.print("DBG H1top=");   Serial.print(buffer.buffer1_pos3_sensor_state);
+	Serial.print(" H2mid=");      Serial.print(buffer.buffer1_pos2_sensor_state);
+	Serial.print(" H3bot=");      Serial.print(buffer.buffer1_pos1_sensor_state);
+	Serial.print(" zone=");       Serial.print(zn);
+	Serial.print(" | filSW=");    Serial.print(buffer.buffer1_material_swtich_state);
+	Serial.print(" filMissing="); Serial.print(filament_missing());
+	Serial.print(" | chainIn=");  Serial.print(chain_in_active);
+	Serial.print(" token=");      Serial.print(has_token);
+	Serial.print(" err=");        Serial.print(is_error);
+#ifdef Y_JUNCTION_SENSOR
+	Serial.print(" | yClear=");   Serial.print(y_path_clear);
+	Serial.print(" yLatch=");     Serial.print(y_feed_latch);
+#endif
+	Serial.print(" | k1=");       Serial.print(buffer.key1);
+	Serial.print(" k2=");         Serial.print(buffer.key2);
+	Serial.print(" | trim=");     Serial.print(speed_trim_percent);
+	Serial.print(" motor=");      Serial.println(mt);
+}
+#endif
+
+static void reset_speed_controller(uint32_t now)
+{
+	speed_trim_percent=AUTO_BASE_PERCENT;
+	last_speed_adjust_time=now;
+	last_speed_decay_time=now;
+	last_auto_zone=AutoZoneWindow;
+}
+
+static void adjust_speed_trim(int8_t delta_percent)
+{
+	int16_t next_speed=(int16_t)speed_trim_percent+delta_percent;
+	if(next_speed<AUTO_MIN_PERCENT) next_speed=AUTO_MIN_PERCENT;
+	if(next_speed>AUTO_MAX_PERCENT) next_speed=AUTO_MAX_PERCENT;
+	speed_trim_percent=(uint8_t)next_speed;
+}
+
+static void decay_speed_trim(void)
+{
+	if(speed_trim_percent<AUTO_BASE_PERCENT){
+		uint16_t next_speed=speed_trim_percent+AUTO_DECAY_PERCENT;
+		if(next_speed>AUTO_BASE_PERCENT) next_speed=AUTO_BASE_PERCENT;
+		speed_trim_percent=(uint8_t)next_speed;
+	}
+	else if(speed_trim_percent>AUTO_BASE_PERCENT){
+		int16_t next_speed=(int16_t)speed_trim_percent-AUTO_DECAY_PERCENT;
+		if(next_speed<AUTO_BASE_PERCENT) next_speed=AUTO_BASE_PERCENT;
+		speed_trim_percent=(uint8_t)next_speed;
+	}
+}
+
+static int32_t speed_percent_to_vactual(uint8_t percent)
+{
+	int32_t rpm=(SPEED*percent)/AUTO_BASE_PERCENT;
+	if(rpm<=0) return STOP;
+	return (int32_t)(rpm*Move_Divide_NUM*200/60/0.715);
+}
+
+static void apply_motor_command(Motor_State desired_state, int32_t vactual_value)
+{
+	static uint8_t write_cnt=0;
+	uint8_t retry_count=9;
+
+	if(desired_state==last_motor_state&&vactual_value==last_vactual_command){
+		motor_state=desired_state;
+		return;
+	}
+
+	switch(desired_state)
+	{
+		case Forward:
+		{
+			WRITE_EN_PIN(0);
+			if(last_motor_state==Back){
+				write_cnt=driver.IFCNT();
+				driver.VACTUAL(STOP);
+				while(write_cnt==driver.IFCNT()&&retry_count--){
+					driver.VACTUAL(STOP);
+				}
+				retry_count=9;
+			}
+			driver.shaft(FORWARD);
+			write_cnt=driver.IFCNT();
+			driver.VACTUAL(vactual_value);
+			while(write_cnt==driver.IFCNT()&&retry_count--){
+				driver.VACTUAL(vactual_value);
+			}
+			is_front=true;
+		}break;
+		case Stop:
+		{
+			write_cnt=driver.IFCNT();
+			driver.VACTUAL(STOP);
+			while(write_cnt==driver.IFCNT()&&retry_count--){
+				driver.VACTUAL(STOP);
+			}
+			WRITE_EN_PIN(1);
+			is_front=false;
+			front_time=0;
+			vactual_value=STOP;
+		}break;
+		case Back:
+		{
+			WRITE_EN_PIN(0);
+			if(last_motor_state==Forward){
+				write_cnt=driver.IFCNT();
+				driver.VACTUAL(STOP);
+				while(write_cnt==driver.IFCNT()&&retry_count--){
+					driver.VACTUAL(STOP);
+				}
+				retry_count=9;
+			}
+			driver.shaft(BACK);
+			write_cnt=driver.IFCNT();
+			driver.VACTUAL(vactual_value);
+			while(write_cnt==driver.IFCNT()&&retry_count--){
+				driver.VACTUAL(vactual_value);
+			}
+			is_front=false;
+			front_time=0;
+		}break;
+	}
+
+	motor_state=desired_state;
+	last_motor_state=desired_state;
+	last_vactual_command=vactual_value;
+}
+
+static void set_token_state(bool new_state)
+{
+	if(has_token==new_state) return;
+	has_token=new_state;
+	uint8_t token_value=new_state?1:0;
+	EEPROM.put(EEPROM_ADDR_CHAIN_TOKEN, token_value);
+#ifdef Y_JUNCTION_SENSOR
+	// Token ownership changed - require a fresh Y-junction clear check
+	// before this unit is allowed to feed again.
+	y_feed_latch=false;
+#endif
+}
+
+static void start_chain_pulse(uint32_t now)
+{
+	chain_pulse_active=true;
+	chain_pulse_start_time=now;
+	digitalWrite(EXTENSION_PIN2,LOW);
+}
+
+static void pass_token_to_next(uint32_t now)
+{
+	last_empty_forward_time=now;
+	set_token_state(false);
+	reset_speed_controller(now);
+	start_chain_pulse(now);
+}
+
+static void receive_chain_token(uint32_t now)
+{
+	if(has_token) return;
+
+	if(filament_missing()){
+		if(now-last_empty_forward_time>=CHAIN_EMPTY_FORWARD_COOLDOWN_MS){
+			pass_token_to_next(now);
+		}
+		return;
+	}
+
+	set_token_state(true);
+	reset_speed_controller(now);
+}
+
+static void update_chain_output(uint32_t now)
+{
+	if(chain_pulse_active&&now-chain_pulse_start_time>=CHAIN_PULSE_MS){
+		chain_pulse_active=false;
+		digitalWrite(EXTENSION_PIN2,HIGH);
+	}
+}
+
+static void update_auto_feed(uint32_t now)
+{
+	AutoZone zone=get_auto_zone();
+
+	if(zone!=last_auto_zone){
+		last_auto_zone=zone;
+		last_speed_adjust_time=now;
+		last_speed_decay_time=now;
+		if(zone==AutoZoneLow){
+			adjust_speed_trim(AUTO_STEP_PERCENT);
+		}
+		else if(zone==AutoZoneHigh){
+			adjust_speed_trim(-AUTO_STEP_PERCENT);
+		}
+	}
+
+	if(zone==AutoZoneSafety){
+		speed_trim_percent=AUTO_BASE_PERCENT;
+		apply_motor_command(Back, speed_percent_to_vactual(AUTO_BASE_PERCENT));
+		return;
+	}
+
+	if(zone==AutoZoneLow&&now-last_speed_adjust_time>=AUTO_STEP_INTERVAL_MS){
+		adjust_speed_trim(AUTO_STEP_PERCENT);
+		last_speed_adjust_time=now;
+	}
+	else if(zone==AutoZoneHigh&&now-last_speed_adjust_time>=AUTO_STEP_INTERVAL_MS){
+		adjust_speed_trim(-AUTO_STEP_PERCENT);
+		last_speed_adjust_time=now;
+	}
+	else if(zone==AutoZoneWindow&&now-last_speed_decay_time>=AUTO_DECAY_INTERVAL_MS){
+		decay_speed_trim();
+		last_speed_decay_time=now;
+	}
+
+	if(zone==AutoZoneHigh&&speed_trim_percent<=AUTO_MIN_PERCENT){
+		apply_motor_command(Stop, STOP);
+		return;
+	}
+
+	apply_motor_command(Forward, speed_percent_to_vactual(speed_trim_percent));
 }
 
 /**
@@ -330,14 +700,14 @@ void read_sensor_state(void)
 void motor_control(void)
 {
 	static uint32_t cur_times=0;
+	static bool last_chain_request=false;
 	cur_times=millis();
 
-	//通知信号关闭
-	if(inform_flag&&cur_times-inform_times>=3000){
-		inform_flag=false;
-		digitalWrite(EXTENSION_PIN2,HIGH);
-		digitalWrite(EXTENSION_PIN1,LOW);
+	update_chain_output(cur_times);
+	if(chain_in_active&&!last_chain_request){
+		receive_chain_token(cur_times);
 	}
+	last_chain_request=chain_in_active;
 	
 	//按键控制电机
 	//按键1短按后松开
@@ -346,13 +716,13 @@ void motor_control(void)
 		key1_release_flag=false;
 		//短按1次后松开
 		if(key1_press_cnt==1){
-			digitalWrite(EXTENSION_PIN2,LOW);
-			inform_times=millis();
-			inform_flag=true;
+			if(has_token){
+				pass_token_to_next(cur_times);
+			}
 			is_error=false;
 		}
 		else if(key1_press_cnt>=2){//短按2次或两次以上后松开
-			is_error=true;
+			is_error=!is_error;
 		}
 
 		key1_press_cnt=0;
@@ -364,13 +734,12 @@ void motor_control(void)
 		key2_release_flag=false;
 		//短按1次后松开
 		if(key2_press_cnt==1){
-			digitalWrite(EXTENSION_PIN1,HIGH);
-			inform_times=millis();
-			inform_flag=true;
+			set_token_state(true);
+			reset_speed_controller(cur_times);
 			is_error=false;
 		}
 		else if(key2_press_cnt>=2){//短按2次或两次以上后松开
-			is_error=true;
+			is_error=!is_error;
 		}
 		
 		key2_press_cnt=0;
@@ -378,7 +747,7 @@ void motor_control(void)
 	}	
 
 	//按键1按下后长按
-	if(key1_press_flag&&cur_times-key1_press_times>=500||digitalRead(BACK_SIGNAL_PIN)==LOW)
+	if((key1_press_flag&&cur_times-key1_press_times>=500)||digitalRead(BACK_SIGNAL_PIN)==LOW)
 	{
 		
 		WRITE_EN_PIN(0);//使能
@@ -395,6 +764,8 @@ void motor_control(void)
 
 		driver.VACTUAL(STOP);	//停止
 		motor_state=Stop;
+		last_motor_state=Stop;
+		last_vactual_command=STOP;
 
 		is_front=false;
 		front_time=0;
@@ -403,7 +774,7 @@ void motor_control(void)
 		is_error=true;
 
 	}
-	else if(key2_press_flag&&cur_times-key2_press_times>=500||digitalRead(FRONT_SIGNAL_PIN)==LOW)//按键2按下后长按
+	else if(key2_press_flag&&cur_times-key2_press_times>=500)//按键2按下后长按
 	{
 
 		WRITE_EN_PIN(0);
@@ -411,7 +782,7 @@ void motor_control(void)
 		
     	driver.shaft(FORWARD);
 		driver.VACTUAL(VACTRUAL_VALUE);
-		while(key2_press_flag||digitalRead(FRONT_SIGNAL_PIN)==LOW){
+		while(key2_press_flag){
 			delay(1);
 			g_run_cnt++;
 		};//等待松手
@@ -419,6 +790,8 @@ void motor_control(void)
 
 		driver.VACTUAL(STOP);	//停止
 		motor_state=Stop;
+		last_motor_state=Stop;
+		last_vactual_command=STOP;
 
 		is_front=false;
 		front_time=0;
@@ -426,149 +799,54 @@ void motor_control(void)
 		WRITE_EN_PIN(1);
 	}
 	
-	if(connet_mdm_flag){//连接了MDM断堵料模块
-		//判断耗材
-		if(digitalRead(ENDSTOP_3)&&!digitalRead(MDM_DPIN))
-		{
-			//无耗材，停止电机
-			driver.VACTUAL(STOP);	//停止
-			motor_state=Stop;
-			
-			//断料引脚输出低电平
-			digitalWrite(DUANLIAO,0);
-			
-			//关闭指示灯
-			digitalWrite(START_LED,0);
-
-			is_front=false;
-			front_time=0;
-			is_error=false;
-			WRITE_EN_PIN(1);
-
-			
-			return;//无耗材，结束
-		}
-		else if(!blockage_detect.blockage_flag){
-			//有耗材，断料引脚输出高电平
-			digitalWrite(DUANLIAO,1);
-			
-			//开启指示灯
-			digitalWrite(START_LED,1);					
-
+	if(filament_missing()){
+		if(has_token){
+			pass_token_to_next(cur_times);
 		}
 
-	}
-	else{
-		//判断耗材
-		if(digitalRead(ENDSTOP_3))
-		{
-			//无耗材，停止电机
-			driver.VACTUAL(STOP);	//停止
-			motor_state=Stop;
-			
-			//断料引脚输出低电平
-			digitalWrite(DUANLIAO,0);
-			
-			//关闭指示灯
-			digitalWrite(START_LED,0);
-
-			is_front=false;
-			front_time=0;
-			is_error=false;
-			WRITE_EN_PIN(1);
-
-			
-			return;//无耗材，结束
-		}		
-
-		//有耗材，断料引脚输出高电平
-		digitalWrite(DUANLIAO,1);
-		
-		//开启指示灯
-		digitalWrite(START_LED,1);		
+		digitalWrite(DUANLIAO,0);
+		digitalWrite(START_LED,0);
+		is_error=false;
+		apply_motor_command(Stop, STOP);
+		return;
 	}
 
-		
+	digitalWrite(DUANLIAO,1);
+	if(!blockage_detect.blockage_flag){
+		digitalWrite(START_LED, has_token ? 1 : 0);
+	}
 
 
 	//判断是否有错误
 	if(is_error){
-		//停止电机
-		driver.VACTUAL(STOP);	//停止
-		motor_state=Stop;
-		WRITE_EN_PIN(1);
+		apply_motor_command(Stop, STOP);
 		return ;
 	}
 
-	//缓冲器位置记录
-	if(buffer.buffer1_pos1_sensor_state)	//缓冲器位置为1，耗材往前推
-	{
-		last_motor_state=motor_state;		//记录上一次状态
-		motor_state=Forward;
-		is_front=true;
-
-	}
-	else if(buffer.buffer1_pos2_sensor_state)	//缓冲器位置为2,电机停止转动
-	{
-		last_motor_state=motor_state;		//记录上一次状态
-		motor_state=Stop;
-		is_front=false;
-		front_time=0;
-	}
-	else if(buffer.buffer1_pos3_sensor_state)	//缓冲器位置为3，回退耗材
-	{
-		last_motor_state=motor_state;		//记录上一次状态
-		motor_state=Back;
-		is_front=false;
-		front_time=0;
-	}
-			
-	if(motor_state==last_motor_state)//如果上次状态跟这次状态一致，则不需要再次发送控制命令,结束此次函数
+#ifndef FRONT_BUFFER_STANDALONE
+	// Token gate: chained buffers only feed while they hold the token.
+	// The standalone front buffer has no token chain — it always feeds.
+	if(!has_token&&get_auto_zone()!=AutoZoneSafety){
+		apply_motor_command(Stop, STOP);
 		return;
-	
-	static uint8_t write_cnt=0;
-	uint8_t retry_count=9;
-	
-	//电机控制
-	switch(motor_state)
-	{
-		case Forward://向前
-		{
-			WRITE_EN_PIN(0);
-			if(last_motor_state==Back)	driver.VACTUAL(STOP);//上次是后退，先停下再前进
-			driver.shaft(FORWARD);
-			write_cnt=driver.IFCNT();
-			driver.VACTUAL(VACTRUAL_VALUE);
-			while(write_cnt==driver.IFCNT()&&retry_count--){//发送失败重发
-				driver.VACTUAL(VACTRUAL_VALUE);
-			}
-
-		}break;
-		case Stop://停止
-		{
-			write_cnt=driver.IFCNT();
-			driver.VACTUAL(STOP);
-			while(write_cnt==driver.IFCNT()&&retry_count--){//发送失败重发
-				driver.VACTUAL(STOP);
-			}	
-			WRITE_EN_PIN(1);		
-
-		}break;
-		case Back://向后
-		{
-			WRITE_EN_PIN(0);
-			if(last_motor_state==Forward)	driver.VACTUAL(STOP);;//上次是前进，先停下再后退
-			driver.shaft(BACK);
-			write_cnt=driver.IFCNT();
-			driver.VACTUAL(VACTRUAL_VALUE);
-			while(write_cnt==driver.IFCNT()&&retry_count--){//发送失败重发
-				driver.VACTUAL(VACTRUAL_VALUE);
-			}				
-		}break;
-		
 	}
-	last_motor_state=motor_state;		//记录上一次状态
-	
+#ifdef Y_JUNCTION_SENSOR
+	// Y-junction handoff: after taking the token, wait for the previous
+	// buffer's filament tail to clear the 4-in-1 junction before feeding,
+	// so two filaments never collide at the joint. Once cleared, latch on
+	// (don't re-gate — this unit's own filament now occupies the junction).
+	if(has_token&&!y_feed_latch&&get_auto_zone()!=AutoZoneSafety){
+		if(y_path_clear){
+			y_feed_latch=true;
+		}else{
+			apply_motor_command(Stop, STOP);
+			return;
+		}
+	}
+#endif
+#endif
+
+	update_auto_feed(cur_times);
 }
 
 void timer_it_callback(){
@@ -813,7 +1091,39 @@ void USB_Serial_Analys(void){
 				Serial.println("steps="+String(steps));
 				Serial.println("allow_error_scale="+String(allow_error_scale));
 				Serial.println("allow_error="+String(blockage_detect.allow_error));
+				Serial.println("token="+String((uint8_t)has_token));
+				Serial.println("trim_percent="+String(speed_trim_percent));
 			}			
+			else if(strstr(serial_buf.c_str(),"token")){
+				int index=serial_buf.indexOf(" ");
+				if(index==-1){
+					Serial.println("token="+String((uint8_t)has_token));
+					serial_buf="";
+					return;
+				}
+				serial_buf=serial_buf.substring(index+1);
+				int64_t num=serial_buf.toInt();
+				if(num!=0&&num!=1){
+					serial_buf="";
+					Serial.println("Error: Invalid token value.");
+				}
+				else{
+					set_token_state(num==1);
+					reset_speed_controller(millis());
+					serial_buf="";
+					Serial.print("set token succeed! token=");
+					Serial.println((uint8_t)has_token);
+				}
+			}
+			else if(strstr(serial_buf.c_str(),"pass")){
+				if(has_token){
+					pass_token_to_next(millis());
+					Serial.println("pass token succeed!");
+				}
+				else{
+					Serial.println("No token to pass.");
+				}
+			}
 			else if(strstr(serial_buf.c_str(),"scale")){
 				int index=serial_buf.indexOf(" ");
 				if(index==-1){
@@ -870,6 +1180,8 @@ void USB_Serial_Analys(void){
 				Serial.print("|     show all info : <info CRLF>             |\n");
 				Serial.print("|     set scale: <scale nnn CRLF>             |\n");
 				Serial.print("|     set speed(r/min): <speed nnn CRLF>      |\n");
+				Serial.print("|     set token owner: <token 0|1 CRLF>       |\n");
+				Serial.print("|     pass token: <pass CRLF>                 |\n");
 				Serial.print("+-----------------------------------------------+\n\n");
 			}
 			serial_buf="";

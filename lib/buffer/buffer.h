@@ -51,12 +51,13 @@
 #define START_LED   PA8  //指示灯
 
 #define EXTENSION_PIN1 PA2 //扩展引脚1
-#define EXTENSION_PIN2 PA3 //扩展引脚2
+#define EXTENSION_PIN2 PA3 //扩展引脚2 / 链式接棒输出
 #define EXTENSION_PIN3 PB11 //扩展引脚3
 #define EXTENSION_PIN4 PB10 //扩展引脚4
 #define EXTENSION_PIN5 PA5 //扩展引脚5
 #define EXTENSION_PIN6 PA4 //扩展引脚6
 #define EXTENSION_PIN7 PB14 //扩展引脚7
+#define CHAIN_Y_SENSOR_PIN EXTENSION_PIN7 //PB14 - shared 4-in-1 Y-junction filament sensor
 
 //堵料检测
 #define PULSE1_PIN EXTENSION_PIN5  	//接收脉冲引脚1，接收主控脉冲
@@ -65,7 +66,7 @@
 #define MDM_DPIN EXTENSION_PIN6 	//MDM断料引脚 1：有耗材 0：无耗材
 
 //信号检测
-#define FRONT_SIGNAL_PIN PB5 //前信号引脚
+#define FRONT_SIGNAL_PIN PB5 //前信号引脚 / 链式接棒输入
 #define BACK_SIGNAL_PIN PB6 //后信号引脚
 
 //SIGNAL_COUNT(GPIO)
