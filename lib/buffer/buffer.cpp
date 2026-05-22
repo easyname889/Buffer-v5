@@ -100,6 +100,12 @@ enum AutoZone
 static const uint32_t SENSOR_DEBOUNCE_MS = 15;
 static const uint32_t AUTO_STEP_INTERVAL_MS = 100;
 static const uint32_t AUTO_DECAY_INTERVAL_MS = 200;
+// After a Safety-overfill latch, hold the motor off until the dancer arm has
+// stayed below the High line for this long (or reached Low — see Low-override
+// in update_auto_feed). With ~40mm of total arm travel the Window span is a
+// few mm of filament wide, so at very fast prints (>~150mm/s) the arm can
+// cross Window in under this delay — the Low-override picks it up there.
+static const uint32_t AUTO_RESUME_DELAY_MS = 300;
 static const uint32_t CHAIN_PULSE_MS = 250;
 static const uint32_t CHAIN_EMPTY_FORWARD_COOLDOWN_MS = 60000;
 static const uint8_t AUTO_BASE_PERCENT = 100;
@@ -114,6 +120,12 @@ static uint32_t last_speed_adjust_time = 0;
 static uint32_t last_speed_decay_time = 0;
 static uint32_t last_empty_forward_time = 0;
 static AutoZone last_auto_zone = AutoZoneWindow;
+// Latched-stop hysteresis. Set when the arm reaches Safety (buffer overfull);
+// holds the motor at 0 until the arm has descended back into Window for
+// AUTO_RESUME_DELAY_MS or all the way to Low. This is what stops the
+// High<->Safety oscillation when the printer isn't consuming filament.
+static bool feed_latched = false;
+static uint32_t resume_window_since = 0;
 static bool has_token = DEFAULT_CHAIN_TOKEN;
 static bool chain_in_active = false;
 static bool chain_pulse_active = false;
@@ -501,6 +513,8 @@ static void reset_speed_controller(uint32_t now)
 	last_speed_adjust_time=now;
 	last_speed_decay_time=now;
 	last_auto_zone=AutoZoneWindow;
+	feed_latched=false;
+	resume_window_since=0;
 }
 
 static void adjust_speed_trim(int8_t delta_percent)
@@ -670,9 +684,42 @@ static void update_auto_feed(uint32_t now)
 	}
 
 	if(zone==AutoZoneSafety){
-		speed_trim_percent=AUTO_BASE_PERCENT;
+		// Emergency overfill: hard back to relieve, and LATCH so we don't
+		// re-feed when the arm drops back into High. Trim is preserved
+		// (no reset) so any decay accumulated in High is not wiped.
+		feed_latched=true;
+		resume_window_since=0;
 		apply_motor_command(Back, speed_percent_to_vactual(AUTO_BASE_PERCENT));
 		return;
+	}
+
+	// Latched after a Safety event: hold the motor at 0 until the arm has
+	// descended far enough. Resume immediately at Low (buffer nearly empty),
+	// or after AUTO_RESUME_DELAY_MS sustained dwell in Window. While still
+	// in High the buffer is still too full — stay stopped. This is the
+	// hysteresis that breaks the High<->Safety relaxation oscillator when
+	// the printer isn't consuming filament. Reachable zones here: Low /
+	// Window / High (Safety already handled above).
+	if(feed_latched){
+		if(zone==AutoZoneLow){
+			feed_latched=false;
+			resume_window_since=0;
+		}
+		else if(zone==AutoZoneWindow){
+			if(resume_window_since==0) resume_window_since=now;
+			if(now-resume_window_since>=AUTO_RESUME_DELAY_MS){
+				feed_latched=false;
+				resume_window_since=0;
+			}else{
+				apply_motor_command(Stop, STOP);
+				return;
+			}
+		}
+		else{ // AutoZoneHigh — still too full
+			resume_window_since=0;
+			apply_motor_command(Stop, STOP);
+			return;
+		}
 	}
 
 	if(zone==AutoZoneLow&&now-last_speed_adjust_time>=AUTO_STEP_INTERVAL_MS){
