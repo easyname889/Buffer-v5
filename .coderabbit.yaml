@@ -1,0 +1,223 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# Buffer (LLLP filament buffer firmware) — CodeRabbit review configuration
+# (bug-hunting profile). Goal: meet-or-beat Gemini Code Assist on high-severity
+# (P0–P2) embedded correctness / concurrency / memory-safety bugs, keeping
+# nitpicks to one collapsed pass.
+#
+# STACK: PlatformIO + Arduino core, MCU STM32F072C8T6 (Cortex-M0, 64KB flash,
+# 16KB RAM), C/C++ firmware. Single-board project (NOT a monorepo): src/main.cpp
+# + lib/buffer/ + variants/. No JS/Python/Dart — so eslint/ruff/prismaLint etc.
+# do not apply; the C/C++ analyzers (cppcheck + clang) are the authoritative linters.
+#
+# HOW THIS IS TUNED:
+#   * profile: chill -> CodeRabbit's BUG-FOCUSED / low-noise profile. It surfaces
+#       significant issues only (logic/runtime/security) AND filters the SAST tools
+#       to medium/high/critical. "assertive" would ADD style/naming/doc nitpicks.
+#   * tone_instructions + path_instructions carry the severity focus (there is no
+#       native "P0-only" filter). The per-glob checklists encode this firmware's
+#       REAL bug classes — ISR data races on non-volatile shared state, the busy-wait
+#       inside the timer ISR, millis() rollover, fixed-buffer sprintf/index overruns,
+#       EEPROM read-back/wear, token/Y-sensor handoff state — the P0/P1 classes a
+#       generic prompt misses on bare-metal Cortex-M0 code.
+#   * Nitpicks are NOT disabled (a real bug can hide in one); they stay grouped in a
+#       single collapsed section, and auto_incremental_review stops re-posting on push.
+
+language: en-US
+
+# <=250 chars. Severity-tagged, terse, bug-only voice tailored to embedded firmware.
+tone_instructions: >-
+  Terse senior-firmware review. Flag only correctness, ISR/concurrency races,
+  memory-safety, integer/overflow and data-loss bugs; skip style, naming,
+  formatting, docs. Prefix findings [P0]/[P1]/[P2] by blast radius. No praise,
+  emojis or poems.
+
+reviews:
+  profile: chill
+  request_changes_workflow: false      # advisory bug-finder; humans decide merge
+  high_level_summary: true
+  poem: false
+  sequence_diagrams: false
+  changed_files_summary: false
+  collapse_walkthrough: true
+  review_status: true
+  assess_linked_issues: true           # low-noise spec-vs-PR mismatch signal
+  related_issues: true
+  related_prs: true
+  estimate_code_review_effort: true
+  enable_prompt_for_ai_agents: true    # emits a fix-prompt per finding (we fix with Claude Code)
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true       # don't re-flag resolved items each push
+    ignore_usernames:
+      - "dependabot[bot]"
+      - "renovate[bot]"
+      - "github-actions[bot]"
+
+  finishing_touches:
+    docstrings:
+      enabled: false                    # code-gen, not bug-finding
+    unit_tests:
+      enabled: false
+
+  # '!' excludes. Build output (.pio), lockfiles, and IDE cruft are never reviewed.
+  # src/, lib/, include/, test/, variants/ and boards/ are KEPT IN SCOPE — the
+  # board variant + pin-map files are real source where a wrong pin/define is a P0.
+  path_filters:
+    - "!**/.pio/**"
+    - "!**/.git/**"
+    - "!**/.vscode/**"
+    - "!**/.beads/**"
+    - "!**/*.lock"
+    - "!**/*.bin"
+    - "!**/*.elf"
+    - "!**/*.hex"
+    - "!**/*.o"
+    - "!**/*.a"
+    - "!**/*.map"
+
+  path_instructions:
+    - path: "**/*.{c,cpp,cc,h,hpp,ino}"
+      instructions: >-
+        Flag ONLY high-severity P0–P2 correctness/security/logic bugs in this bare-metal
+        STM32F072 (Cortex-M0, single-core, 16KB RAM) Arduino firmware. Do NOT comment on
+        style, naming, brace placement, indentation, comment language or missing docs —
+        cppcheck/clang own those.
+        MEMORY SAFETY: flag out-of-bounds array/buffer access — fixed arrays indexed by a
+        value not provably within bounds (e.g. debounce_input's stable_state/last_raw_state/
+        last_change_time[6] indexed by `index`; any sensor/pin lookup table). Flag sprintf/
+        snprintf/strcpy/strcat/memcpy that can overrun a fixed stack buffer (e.g. char buf[11]
+        formatting a register value) — require the buffer to fit the worst-case output incl. NUL.
+        Flag use of an uninitialized local, dangling pointer, or stack-allocated buffer escaping
+        scope. On 16KB RAM, flag large stack arrays / deep recursion (stack overflow → hardfault).
+        INTEGER/MATH: flag signed/unsigned mix and narrowing (int32_t assigned from a wider expr,
+        uint8_t percent math), division/modulo by a value that can be zero, and the VACTUAL/speed
+        conversion overflowing int32_t. millis()/micros() ROLLOVER: timing MUST use unsigned
+        subtraction `(uint32_t)(now - last) >= interval`; flag `now >= last + interval` or
+        comparing absolute timestamps (breaks every ~49 days at the uint32 wrap).
+        BLOCKING: flag long/unbounded blocking in the hot feed path — `delay()`/busy-wait/`while(1)`
+        loops that stall the dancer-arm control loop or starve the watchdog refresh.
+        STATE/LOGIC: flag off-by-one and inverted active-low sensor logic (filament present=0/
+        missing=1, key pressed=0, light blocked=1) — a flipped comparison silently feeds or jams.
+        Flag a motor command (FORWARD/BACK/STOP, VACTUAL) reachable in a fault/`is_error` state.
+    - path: "lib/buffer/**/*.{c,cpp,h}"
+      instructions: >-
+        ISR / CONCURRENCY (P0 — Cortex-M0 has no atomic guarantees beyond aligned 32-bit loads):
+        any variable WRITTEN in an interrupt handler (key1_it_callback, key2_it_callback,
+        timer_it_callback, Recv_MDM_Pulse_IT_Callback, Dir_IT_Callback) and READ in buffer_loop()/
+        main MUST be declared `volatile`. Flag shared flags/counters/timestamps touched by an ISR
+        that are NOT volatile (key press flags/counts/times, blockage_detect.mdm_pulse_cnt,
+        front_time, is_error) — the compiler may cache a stale copy or tear a read.
+        Flag multi-byte (>32-bit, or struct/array) shared state read in main while an ISR mutates it
+        without disabling interrupts (__disable_irq/noInterrupts) around the read — torn read =
+        wrong token/blockage/timeout decision. Flag read-modify-write on a shared counter outside a
+        critical section. ISR BODY: an ISR must be short and non-blocking — flag `delay()`,
+        `while(1)`, busy-wait, Serial prints, EEPROM/flash writes, or long loops inside any *_callback
+        (the timer ISR's `while(1){delay(1);}` reset-wait blocks all other interrupts; confirm it is a
+        deliberate watchdog-reset path, not a hang). Flag a HardwareTimer/EXTI callback that races the
+        watchdog refresh (IWDG->KR) such that a missed refresh could reset mid-feed.
+        EEPROM/PERSISTENCE: EEPROM.get() reads raw bytes — flag using a loaded value (timeout, SPEED,
+        steps, has_token, encoder_length, allow_error_scale) without validating range / sentinel for a
+        blank (0xFF) cell; an uninitialized cell yields garbage that can disable the runout timeout or
+        command a runaway speed. Flag EEPROM.put() in a hot loop or ISR (flash wear / blocking).
+        TOKEN + Y-SENSOR HANDOFF: only the token-holder may feed; flag any path that feeds while
+        !has_token (back buffer) or that passes/claims the token without the 250ms chain pulse / edge
+        debounce, or that latches feed before the Y-junction sensor reads clear — two filaments can
+        collide at the 4-in-1. Flag FRONT_BUFFER_STANDALONE / Y_JUNCTION_SENSOR #ifdef branches that
+        leave a variable used-but-undefined or a sensor read uninitialized in one build variant.
+        FLOAT: flag float == comparisons and float use in timing/critical paths on this FPU-less M0.
+    - path: "variants/**/*.{c,cpp,h}"
+      instructions: >-
+        Board variant / pin-map / peripheral-init code. Flag P0 hardware-correctness bugs only: a pin
+        mapped to the wrong port/AF, a duplicate/conflicting pin assignment, an ADC/PWM/UART channel
+        mismatch, or a clock/HSE config inconsistent with platformio.ini (HSE_VALUE=8000000L, USE_HSE).
+        Note: DIR_PIN is double-#defined in buffer.h (PA7 vs EXTENSION_PIN3/PB11) — flag any NEW
+        duplicate/conflicting pin #define, and flag a peripheral driven on a pin already claimed elsewhere.
+        Do NOT nitpick generated-style formatting or vendor boilerplate.
+
+  # Deterministic merge-gate checks, advisory (warning) so they post but don't block.
+  # Flip a mode to `error` + request_changes_workflow:true to hard-gate later.
+  pre_merge_checks:
+    custom_checks:
+      - name: "ISR-shared state is volatile"
+        mode: "warning"
+        instructions: >-
+          WARN and name the file/line if any variable written inside an interrupt handler
+          (key1_it_callback, key2_it_callback, timer_it_callback, Recv_MDM_Pulse_IT_Callback,
+          Dir_IT_Callback, or any *_IT_Callback) and read in buffer_loop()/main is declared
+          without `volatile`, or if a multi-byte shared value is read in main while an ISR can
+          mutate it without a critical section (__disable_irq/noInterrupts). Report no violation otherwise.
+      - name: "millis() rollover-safe timing"
+        mode: "warning"
+        instructions: >-
+          WARN and name the file/line if any new/modified timing comparison uses absolute
+          timestamps or `now >= last + interval` instead of unsigned-difference form
+          `(uint32_t)(now - last) >= interval`. Report no violation if all elapsed-time checks are rollover-safe.
+
+  tools:
+    # C/C++ static analysis — the authoritative linters for this firmware.
+    cppcheck:
+      enabled: true            # C/C++ bug finder (out-of-bounds, uninit, leaks, signedness)
+    clang:
+      enabled: true            # clang static analyzer (null deref, dead store, logic)
+    # ALWAYS-ON security / supply-chain:
+    gitleaks:
+      enabled: true            # single secret scanner
+    trufflehog:
+      enabled: false           # overlaps gitleaks (double-reports secrets)
+    osvScanner:
+      enabled: true            # dependency CVEs (TMcstepper + Arduino libs)
+    ast-grep:
+      essential_rules: true    # coderabbitai/ast-grep-essentials structural security pack
+    # No JS/TS, Python, Dart, Ruby, Go, PHP, Rust, Lua, Swift in this repo — those
+    # linters do not apply. No .github/workflows -> actionlint/zizmor off. No Dockerfile
+    # -> hadolint off. Prose / overlap / non-applicable linters OFF (no correctness signal):
+    eslint:
+      enabled: false
+    biome:
+      enabled: false
+    oxc:
+      enabled: false
+    ruff:
+      enabled: false
+    pylint:
+      enabled: false
+    flake8:
+      enabled: false
+    semgrep:
+      enabled: false           # INERT without a self-contained .coderabbit/semgrep.yml; not shipped
+    prismaLint:
+      enabled: false
+    sqlfluff:
+      enabled: false
+    dotenvLint:
+      enabled: false
+    yamllint:
+      enabled: false
+    hadolint:
+      enabled: false
+    actionlint:
+      enabled: false
+    markdownlint:
+      enabled: false
+    languagetool:
+      enabled: false
+    shellcheck:
+      enabled: false
+
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: auto                # adaptive: reply "stop flagging X" to suppress repeat FPs
+  code_guidelines:
+    enabled: true              # ingests the repo's own guidance docs as review criteria
+    # Only files COMMITTED to the repo can be ingested. README.md is the sole tracked
+    # guidance doc on this branch; CLAUDE.md/AGENTS.md/OVERLOOK.md/CODE_REVIEW_v5.md and
+    # playbooks/ are agent-local and untracked, so listing them yields empty ingestion.
+    # Re-add a pattern here only after the corresponding doc is committed to the repo.
+    filePatterns:
+      - "README.md"
+  web_search:
+    enabled: true
