@@ -144,17 +144,17 @@ reviews:
       - name: "ISR-shared state is volatile"
         mode: "warning"
         instructions: >-
-          FAIL and name the file/line if any variable written inside an interrupt handler
+          WARN and name the file/line if any variable written inside an interrupt handler
           (key1_it_callback, key2_it_callback, timer_it_callback, Recv_MDM_Pulse_IT_Callback,
           Dir_IT_Callback, or any *_IT_Callback) and read in buffer_loop()/main is declared
           without `volatile`, or if a multi-byte shared value is read in main while an ISR can
-          mutate it without a critical section (__disable_irq/noInterrupts). PASS otherwise.
+          mutate it without a critical section (__disable_irq/noInterrupts). Report no violation otherwise.
       - name: "millis() rollover-safe timing"
         mode: "warning"
         instructions: >-
-          FAIL and name the file/line if any new/modified timing comparison uses absolute
+          WARN and name the file/line if any new/modified timing comparison uses absolute
           timestamps or `now >= last + interval` instead of unsigned-difference form
-          `(uint32_t)(now - last) >= interval`. PASS if all elapsed-time checks are rollover-safe.
+          `(uint32_t)(now - last) >= interval`. Report no violation if all elapsed-time checks are rollover-safe.
 
   tools:
     # C/C++ static analysis — the authoritative linters for this firmware.
@@ -213,12 +213,11 @@ knowledge_base:
     scope: auto                # adaptive: reply "stop flagging X" to suppress repeat FPs
   code_guidelines:
     enabled: true              # ingests the repo's own guidance docs as review criteria
+    # Only files COMMITTED to the repo can be ingested. README.md is the sole tracked
+    # guidance doc on this branch; CLAUDE.md/AGENTS.md/OVERLOOK.md/CODE_REVIEW_v5.md and
+    # playbooks/ are agent-local and untracked, so listing them yields empty ingestion.
+    # Re-add a pattern here only after the corresponding doc is committed to the repo.
     filePatterns:
-      - "CLAUDE.md"
-      - "AGENTS.md"
       - "README.md"
-      - "OVERLOOK.md"
-      - "CODE_REVIEW_v5.md"
-      - "playbooks/**/*.md"
   web_search:
     enabled: true
