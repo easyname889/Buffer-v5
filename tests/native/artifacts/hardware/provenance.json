@@ -1,0 +1,25 @@
+{
+  "checked_at": "2026-09-13T17:29:33.336811+00:00",
+  "scope": "Hardware reference only; user-confirmed custom infinite-spool firmware controls actual behavior. Flashed binary identity remains unverified.",
+  "sources": [
+    {
+      "url": "https://mellow.klipper.cn/en/docs/ProductDoc/ExtensionBoard/fly-buffer-plus/wiring-configuration/",
+      "image_url": "https://mellow.klipper.cn/img/ProductDoc/ExtensionBoard/fly-alps/Pin.webp",
+      "local": "Pin.webp",
+      "finding": "Official linked pin graphic labels PB7 local ENDSTOP, PB5/PB6 signal connectors, PA6 motor EN, PA7 DIR, PC13 STEP, PB1 UART, main PB15 Fil-Switch and PB14 Fil-Motion. Does not label PA8/PA15 LED wiring. Asset directory name alone does not identify board.",
+      "sha256": "816d48001bea9bc63096f820eaf80fa97626838ae51a4eb56e9931611f62e811"
+    },
+    {
+      "url": "https://mellow.klipper.cn/en/docs/ProductDoc/ExtensionBoard/fly-buffer-plus/wiring-configuration/basic-wiring/",
+      "local": "official-basic-wiring.txt",
+      "quote": "After connecting the power supply, the indicator light on the buffer should remain constantly on, indicating the device is powered.",
+      "sha256": "13b916cea67c493879e5f240654ec9ce348c608bb3786ded122551afdfe1f85a"
+    },
+    {
+      "image_url": "https://mellow.klipper.cn/img/ProductDoc/ExtensionBoard/fly-buffer-plus/basic.webp",
+      "local": "basic.webp",
+      "finding": "Official board photo/power diagram inspected including crop; visible R/B are pushbuttons, not established LED labels; no LED-net map established.",
+      "sha256": "3a300c7c42deb0d41943bead31ad350223fc5ac4d559b1931ae0c6764e7e00f2"
+    }
+  ]
+}
