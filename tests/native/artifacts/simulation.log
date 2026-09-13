@@ -1,0 +1,151 @@
+back PASS mdm_inputs
+back PASS pulse_direction
+back PASS pulse_wrap
+back PASS random_invariants
+back PASS basic
+back PASS low_override
+back PASS high_trim
+back PASS debounce
+back PASS hall_priority
+back PASS timeout_stop
+back PASS timeout_boundary
+back PASS timer_reset
+back PASS rollover
+back PASS pulse
+back PASS chain_edge
+back FAIL bounce_key: One bouncing press interpreted as double-click toggles fault [ms=520 motor=1 token=1 error=1 velocity=0]
+back PASS double_toggle
+back FAIL long_jog_safety: Forward jog ignores Safety while main loop is blocked [ms=2001 motor=0 token=1 error=0 velocity=77574]
+back FAIL jog_chain_pulse: 250ms chain output remains LOW for entire 2s reverse hold [ms=2016 motor=1 token=1 error=1 velocity=0]
+back FAIL stuck_reverse: Stuck reverse input runs indefinitely while watchdog is fed [ms=70016 motor=0 token=1 error=1 velocity=77574]
+back FAIL uart_failure: Failed UART command cached as successful; future retries suppressed [ms=16 motor=2 token=1 error=0 velocity=77574]
+back FAIL timeout_lamp: Timeout stop still shows START_LED on [ms=60516 motor=1 token=1 error=1 velocity=0]
+back PASS error_blink
+back PASS mdm_blink
+back FAIL blockage_output: motor_control overwrites jam LOW with filament-present HIGH on shared PB15 [ms=117 motor=0 token=1 error=0 velocity=77574]
+back PASS blockage_blink
+back FAIL serial_invalid: Invalid timeout command writes zero despite error [ms=16 motor=0 token=1 error=0 velocity=77574]
+back FAIL serial_token: Nonnumeric token silently becomes zero, dropping ownership [ms=16 motor=0 token=0 error=0 velocity=77574]
+back FAIL serial_scale: Rejected negative scale still persisted [ms=16 motor=0 token=1 error=0 velocity=77574]
+back FAIL serial_speed: Runtime accepts speed above boot-valid maximum 1000 [ms=16 motor=0 token=1 error=0 velocity=77574]
+back FAIL zero_steps: EEPROM zero steps accepted; MDM division by zero reachable [ms=16 motor=0 token=1 error=0 velocity=77574]
+back PASS y_gate
+back FAIL empty_receiver: Empty receiver discarded handoff during first 60s; no deferred retry [ms=61036 motor=1 token=0 error=0 velocity=0]
+back FAIL cooldown_repeat: Empty receiver drops repeated token within cooldown permanently [ms=122316 motor=1 token=0 error=0 velocity=0]
+back FAIL restart_occupied_y: Stored token restarts behind occupied Y and never regains feed latch [ms=122000 motor=1 token=1 error=0 velocity=0]
+back FAIL lost_token_reload: Reload cannot recover token discarded by an empty unit [ms=120036 motor=1 token=0 error=0 velocity=0]
+back PASS no_token_stop
+back PASS runout
+back FAIL duplicate_claim: KEY2 can mint a second token while another board owns the first [ms=567 motor=0 token=1 error=0 velocity=77574]
+back FAIL jog_timeout: Manual forward from Stop bypasses 60s timer entirely [ms=66001 motor=1 token=0 error=0 velocity=0]
+back FAIL stop_enable: Initial Stop cache prevents disabling driver enabled by motor init [ms=16 motor=1 token=0 error=0 velocity=0]
+front PASS mdm_inputs
+front PASS pulse_direction
+front PASS pulse_wrap
+front PASS random_invariants
+front PASS basic
+front PASS low_override
+front PASS high_trim
+front PASS debounce
+front PASS hall_priority
+front PASS timeout_stop
+front PASS timeout_boundary
+front PASS timer_reset
+front PASS rollover
+front PASS pulse
+front PASS chain_edge
+front FAIL bounce_key: One bouncing press interpreted as double-click toggles fault [ms=520 motor=1 token=1 error=1 velocity=0]
+front PASS double_toggle
+front FAIL long_jog_safety: Forward jog ignores Safety while main loop is blocked [ms=2001 motor=0 token=1 error=0 velocity=77574]
+front FAIL jog_chain_pulse: 250ms chain output remains LOW for entire 2s reverse hold [ms=2016 motor=1 token=1 error=1 velocity=0]
+front FAIL stuck_reverse: Stuck reverse input runs indefinitely while watchdog is fed [ms=70016 motor=0 token=1 error=1 velocity=77574]
+front FAIL uart_failure: Failed UART command cached as successful; future retries suppressed [ms=16 motor=2 token=1 error=0 velocity=77574]
+front FAIL timeout_lamp: Timeout stop still shows START_LED on [ms=60516 motor=1 token=1 error=1 velocity=0]
+front PASS error_blink
+front PASS mdm_blink
+front FAIL blockage_output: motor_control overwrites jam LOW with filament-present HIGH on shared PB15 [ms=117 motor=0 token=1 error=0 velocity=77574]
+front PASS blockage_blink
+front FAIL serial_invalid: Invalid timeout command writes zero despite error [ms=16 motor=0 token=1 error=0 velocity=77574]
+front FAIL serial_token: Nonnumeric token silently becomes zero, dropping ownership [ms=16 motor=0 token=0 error=0 velocity=77574]
+front FAIL serial_scale: Rejected negative scale still persisted [ms=16 motor=0 token=1 error=0 velocity=77574]
+front FAIL serial_speed: Runtime accepts speed above boot-valid maximum 1000 [ms=16 motor=0 token=1 error=0 velocity=77574]
+front FAIL zero_steps: EEPROM zero steps accepted; MDM division by zero reachable [ms=16 motor=0 token=1 error=0 velocity=77574]
+front PASS front_standalone
+front FAIL front_lamp: Front is feeding but START_LED is off because unused token=0 [ms=16 motor=0 token=0 error=0 velocity=77574]
+front FAIL front_noise_restart: Front resumes dry when exhausted arm leaves narrow Low hall zone [ms=48 motor=0 token=0 error=0 velocity=77574]
+back_debug PASS mdm_inputs
+back_debug PASS pulse_direction
+back_debug PASS pulse_wrap
+back_debug PASS random_invariants
+back_debug PASS basic
+back_debug PASS low_override
+back_debug PASS high_trim
+back_debug PASS debounce
+back_debug PASS hall_priority
+back_debug PASS timeout_stop
+back_debug PASS timeout_boundary
+back_debug PASS timer_reset
+back_debug PASS rollover
+back_debug PASS pulse
+back_debug PASS chain_edge
+back_debug FAIL bounce_key: One bouncing press interpreted as double-click toggles fault [ms=520 motor=1 token=1 error=1 velocity=0]
+back_debug PASS double_toggle
+back_debug FAIL long_jog_safety: Forward jog ignores Safety while main loop is blocked [ms=2001 motor=0 token=1 error=0 velocity=77574]
+back_debug FAIL jog_chain_pulse: 250ms chain output remains LOW for entire 2s reverse hold [ms=2016 motor=1 token=1 error=1 velocity=0]
+back_debug FAIL stuck_reverse: Stuck reverse input runs indefinitely while watchdog is fed [ms=70016 motor=0 token=1 error=1 velocity=77574]
+back_debug FAIL uart_failure: Failed UART command cached as successful; future retries suppressed [ms=16 motor=2 token=1 error=0 velocity=77574]
+back_debug FAIL timeout_lamp: Timeout stop still shows START_LED on [ms=60516 motor=1 token=1 error=1 velocity=0]
+back_debug PASS error_blink
+back_debug PASS mdm_blink
+back_debug FAIL blockage_output: motor_control overwrites jam LOW with filament-present HIGH on shared PB15 [ms=117 motor=0 token=1 error=0 velocity=77574]
+back_debug PASS blockage_blink
+back_debug FAIL serial_invalid: Invalid timeout command writes zero despite error [ms=16 motor=0 token=1 error=0 velocity=77574]
+back_debug FAIL serial_token: Nonnumeric token silently becomes zero, dropping ownership [ms=16 motor=0 token=0 error=0 velocity=77574]
+back_debug FAIL serial_scale: Rejected negative scale still persisted [ms=16 motor=0 token=1 error=0 velocity=77574]
+back_debug FAIL serial_speed: Runtime accepts speed above boot-valid maximum 1000 [ms=16 motor=0 token=1 error=0 velocity=77574]
+back_debug FAIL zero_steps: EEPROM zero steps accepted; MDM division by zero reachable [ms=16 motor=0 token=1 error=0 velocity=77574]
+back_debug PASS y_gate
+back_debug FAIL empty_receiver: Empty receiver discarded handoff during first 60s; no deferred retry [ms=61036 motor=1 token=0 error=0 velocity=0]
+back_debug FAIL cooldown_repeat: Empty receiver drops repeated token within cooldown permanently [ms=122316 motor=1 token=0 error=0 velocity=0]
+back_debug FAIL restart_occupied_y: Stored token restarts behind occupied Y and never regains feed latch [ms=122000 motor=1 token=1 error=0 velocity=0]
+back_debug FAIL lost_token_reload: Reload cannot recover token discarded by an empty unit [ms=120036 motor=1 token=0 error=0 velocity=0]
+back_debug PASS no_token_stop
+back_debug PASS runout
+back_debug FAIL duplicate_claim: KEY2 can mint a second token while another board owns the first [ms=567 motor=0 token=1 error=0 velocity=77574]
+back_debug FAIL jog_timeout: Manual forward from Stop bypasses 60s timer entirely [ms=66001 motor=1 token=0 error=0 velocity=0]
+back_debug FAIL stop_enable: Initial Stop cache prevents disabling driver enabled by motor init [ms=16 motor=1 token=0 error=0 velocity=0]
+front_debug PASS mdm_inputs
+front_debug PASS pulse_direction
+front_debug PASS pulse_wrap
+front_debug PASS random_invariants
+front_debug PASS basic
+front_debug PASS low_override
+front_debug PASS high_trim
+front_debug PASS debounce
+front_debug PASS hall_priority
+front_debug PASS timeout_stop
+front_debug PASS timeout_boundary
+front_debug PASS timer_reset
+front_debug PASS rollover
+front_debug PASS pulse
+front_debug PASS chain_edge
+front_debug FAIL bounce_key: One bouncing press interpreted as double-click toggles fault [ms=520 motor=1 token=1 error=1 velocity=0]
+front_debug PASS double_toggle
+front_debug FAIL long_jog_safety: Forward jog ignores Safety while main loop is blocked [ms=2001 motor=0 token=1 error=0 velocity=77574]
+front_debug FAIL jog_chain_pulse: 250ms chain output remains LOW for entire 2s reverse hold [ms=2016 motor=1 token=1 error=1 velocity=0]
+front_debug FAIL stuck_reverse: Stuck reverse input runs indefinitely while watchdog is fed [ms=70016 motor=0 token=1 error=1 velocity=77574]
+front_debug FAIL uart_failure: Failed UART command cached as successful; future retries suppressed [ms=16 motor=2 token=1 error=0 velocity=77574]
+front_debug FAIL timeout_lamp: Timeout stop still shows START_LED on [ms=60516 motor=1 token=1 error=1 velocity=0]
+front_debug PASS error_blink
+front_debug PASS mdm_blink
+front_debug FAIL blockage_output: motor_control overwrites jam LOW with filament-present HIGH on shared PB15 [ms=117 motor=0 token=1 error=0 velocity=77574]
+front_debug PASS blockage_blink
+front_debug FAIL serial_invalid: Invalid timeout command writes zero despite error [ms=16 motor=0 token=1 error=0 velocity=77574]
+front_debug FAIL serial_token: Nonnumeric token silently becomes zero, dropping ownership [ms=16 motor=0 token=0 error=0 velocity=77574]
+front_debug FAIL serial_scale: Rejected negative scale still persisted [ms=16 motor=0 token=1 error=0 velocity=77574]
+front_debug FAIL serial_speed: Runtime accepts speed above boot-valid maximum 1000 [ms=16 motor=0 token=1 error=0 velocity=77574]
+front_debug FAIL zero_steps: EEPROM zero steps accepted; MDM division by zero reachable [ms=16 motor=0 token=1 error=0 velocity=77574]
+front_debug PASS front_standalone
+front_debug FAIL front_lamp: Front is feeding but START_LED is off because unused token=0 [ms=16 motor=0 token=0 error=0 velocity=77574]
+front_debug FAIL front_noise_restart: Front resumes dry when exhausted arm leaves narrow Low hall zone [ms=48 motor=0 token=0 error=0 velocity=77574]
+TOTAL 150 {'pass': 84, 'fail': 66}

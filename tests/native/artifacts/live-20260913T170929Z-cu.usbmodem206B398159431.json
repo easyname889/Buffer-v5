@@ -1,0 +1,7 @@
+{
+  "device": "/dev/cu.usbmodem206B398159431",
+  "baud": 115200,
+  "writes": 0,
+  "received_bytes": 0,
+  "chunks": []
+}

@@ -1,0 +1,38 @@
+In file included from /Users/system/Documents/Playground/Buffer/tests/native/simulation.cpp:5:
+In file included from /Users/system/Documents/Playground/Buffer/tests/native/../../lib/buffer/buffer.cpp:28:
+/Users/system/Documents/Playground/Buffer/tests/native/../../lib/buffer/buffer.h:64:9: warning: 'DIR_PIN' macro redefined [-Wmacro-redefined]
+   64 | #define DIR_PIN EXTENSION_PIN3  //方向引脚,挤出1，回抽0
+      |         ^
+/Users/system/Documents/Playground/Buffer/tests/native/../../lib/buffer/buffer.h:44:9: note: previous definition is here
+   44 | #define DIR_PIN     PA7 //方向
+      |         ^
+In file included from /Users/system/Documents/Playground/Buffer/tests/native/simulation.cpp:5:
+/Users/system/Documents/Playground/Buffer/tests/native/../../lib/buffer/buffer.cpp:1057:3: warning: 'sprintf' is deprecated: This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of sprintf(3), it is highly recommended that you use snprintf(3) instead. [-Wdeprecated-declarations]
+ 1057 |                 sprintf(buf, "%08lX", chopconf);  // %08lX -> 8位大写十六进制（long unsigned）
+      |                 ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_stdio.h:278:1: note: 'sprintf' has been explicitly marked deprecated here
+  278 | __deprecated_msg("This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of sprintf(3), it is highly recommended that you use snprintf(3) instead.")
+      | ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/cdefs.h:227:48: note: expanded from macro '__deprecated_msg'
+  227 |         #define __deprecated_msg(_msg) __attribute__((__deprecated__(_msg)))
+      |                                                       ^
+In file included from /Users/system/Documents/Playground/Buffer/tests/native/simulation.cpp:5:
+/Users/system/Documents/Playground/Buffer/tests/native/../../lib/buffer/buffer.cpp:1057:25: warning: format specifies type 'unsigned long' but the argument has type 'uint32_t' (aka 'unsigned int') [-Wformat]
+ 1057 |                 sprintf(buf, "%08lX", chopconf);  // %08lX -> 8位大写十六进制（long unsigned）
+      |                               ~~~~~   ^~~~~~~~
+      |                               %08X
+/Users/system/Documents/Playground/Buffer/tests/native/../../lib/buffer/buffer.cpp:1060:3: warning: 'sprintf' is deprecated: This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of sprintf(3), it is highly recommended that you use snprintf(3) instead. [-Wdeprecated-declarations]
+ 1060 |                 sprintf(buf, "%08lX", pwmconf);  // %08lX -> 8位大写十六进制（long unsigned）
+      |                 ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_stdio.h:278:1: note: 'sprintf' has been explicitly marked deprecated here
+  278 | __deprecated_msg("This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of sprintf(3), it is highly recommended that you use snprintf(3) instead.")
+      | ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/cdefs.h:227:48: note: expanded from macro '__deprecated_msg'
+  227 |         #define __deprecated_msg(_msg) __attribute__((__deprecated__(_msg)))
+      |                                                       ^
+In file included from /Users/system/Documents/Playground/Buffer/tests/native/simulation.cpp:5:
+/Users/system/Documents/Playground/Buffer/tests/native/../../lib/buffer/buffer.cpp:1060:25: warning: format specifies type 'unsigned long' but the argument has type 'uint32_t' (aka 'unsigned int') [-Wformat]
+ 1060 |                 sprintf(buf, "%08lX", pwmconf);  // %08lX -> 8位大写十六进制（long unsigned）
+      |                               ~~~~~   ^~~~~~~
+      |                               %08X
+5 warnings generated.

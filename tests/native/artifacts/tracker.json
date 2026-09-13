@@ -1,0 +1,57 @@
+[
+  {
+    "id": "Buffer-h9h",
+    "title": "Empty receiver permanently discards chain token during cooldown",
+    "cases": "empty_receiver cooldown_repeat lost_token_reload"
+  },
+  {
+    "id": "Buffer-oj8",
+    "title": "Restart with persisted token and occupied Y can deadlock feed",
+    "cases": "restart_occupied_y"
+  },
+  {
+    "id": "Buffer-uty",
+    "title": "Blocking jog ignores sensors and stalls chain output while watchdog stays healthy",
+    "cases": "long_jog_safety jog_chain_pulse jog_timeout stuck_reverse"
+  },
+  {
+    "id": "Buffer-sty",
+    "title": "Manual token claim and persisted duplicate tokens allow simultaneous feeders",
+    "cases": "duplicate_claim"
+  },
+  {
+    "id": "Buffer-xue",
+    "title": "Jam status PB15 is overwritten by normal filament status in same loop",
+    "cases": "blockage_output"
+  },
+  {
+    "id": "Buffer-kas",
+    "title": "Failed TMC UART commands are cached as successful and Stop initially stays enabled",
+    "cases": "uart_failure stop_enable"
+  },
+  {
+    "id": "Buffer-66e",
+    "title": "Button bounce can create an unintended double-click fault",
+    "cases": "bounce_key"
+  },
+  {
+    "id": "Buffer-tfe",
+    "title": "USB parser persists rejected or nonnumeric configuration values",
+    "cases": "serial_invalid serial_token serial_scale serial_speed"
+  },
+  {
+    "id": "Buffer-764",
+    "title": "Zero EEPROM steps passes validation before MDM divide",
+    "cases": "zero_steps"
+  },
+  {
+    "id": "Buffer-oik",
+    "title": "Define lamp meanings and front dry-stop hysteresis against bench behavior",
+    "cases": "front_lamp timeout_lamp front_noise_restart"
+  },
+  {
+    "id": "Buffer-het",
+    "title": "Design fail-closed supervised token link and wire-fault diagnostics",
+    "cases": "chain_edge"
+  }
+]

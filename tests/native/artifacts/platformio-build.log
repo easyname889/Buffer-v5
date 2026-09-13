@@ -1,0 +1,126 @@
+********************************************************************************
+If you like PlatformIO, please:
+- star it on GitHub > https://github.com/platformio/platformio-core
+- follow us on LinkedIn to stay up-to-date on the latest project news > https://www.linkedin.com/company/platformio/
+- try PlatformIO IDE for embedded development > https://platformio.org/platformio-ide
+********************************************************************************
+
+Processing fly_buffer_f072c8 (platform: ststm32; board: fly_buffer_f072c8; framework: arduino)
+--------------------------------------------------------------------------------
+Platform Manager: Installing ststm32
+Downloading 0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100%
+Unpacking 0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100%
+Platform Manager: ststm32@20.0.0 has been installed!
+Tool Manager: Installing platformio/toolchain-gccarmnoneeabi @ ~1.120301.0
+Downloading 0% 10% 20% 30% 40% 50% 60% 70% 80% 90%Exception ignored in: <function FileDownloader.__del__ at 0x109936c00>
+Traceback (most recent call last):
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/package/download.py", line 163, in __del__
+    self._http_session.close()
+AttributeError: 'FileDownloader' object has no attribute '_http_session'
+Tool Manager: Error: Please read https://bit.ly/package-manager-ioerror
+Tool Manager: Warning! Package Mirror: [Errno 5] Input/output error
+Tool Manager: Looking for another mirror...
+FileNotFoundError: Traceback (most recent call last):
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/__main__.py", line 103, in main
+    cli()  # pylint: disable=no-value-for-parameter
+    ~~~^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/click/core.py", line 1631, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/click/core.py", line 1552, in main
+    rv = self.invoke(ctx)
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/cli.py", line 85, in invoke
+    return super().invoke(ctx)
+           ~~~~~~~~~~~~~~^^^^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/click/core.py", line 2032, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/click/core.py", line 1415, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/click/core.py", line 910, in invoke
+    return callback(*args, **kwargs)
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/click/decorators.py", line 34, in new_func
+    return f(get_current_context(), *args, **kwargs)
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/run/cli.py", line 155, in cli
+    process_env(
+    ~~~~~~~~~~~^
+        ctx,
+        ^^^^
+    ...<9 lines>...
+        verbose,
+        ^^^^^^^^
+    )
+    ^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/run/cli.py", line 218, in process_env
+    ).process()
+      ~~~~~~~^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/run/processor.py", line 81, in process
+    install_project_env_dependencies(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self.name,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        },
+        ^^
+    )
+    ^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/package/commands/install.py", line 134, in install_project_env_dependencies
+    _install_project_env_platform(project_env, options),
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/package/commands/install.py", line 151, in _install_project_env_platform
+    PlatformPackageManager().install(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        spec,
+        ^^^^^
+    ...<3 lines>...
+        force=options.get("force"),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/package/manager/platform.py", line 62, in install
+    p.install_required_packages(force=force)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/platform/_packages.py", line 76, in install_required_packages
+    self.install_package(name, force=force)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/system/.cache/buffer-platformio/platforms/ststm32/platform.py", line 121, in install_package
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/platform/_packages.py", line 70, in install_package
+    return self.pm.install(spec or self.get_package_spec(name), force=force)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/package/manager/_install.py", line 47, in install
+    pkg = self._install(spec, skip_dependencies=skip_dependencies, force=force)
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/package/manager/_install.py", line 99, in _install
+    pkg = self.install_from_registry(
+        spec,
+    ...<6 lines>...
+        ),
+    )
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/package/manager/_registry.py", line 52, in install_from_registry
+    for url, checksum in RegistryFileMirrorIterator(pkgfile["download_url"]):
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/registry/mirror.py", line 41, in __next__
+    with ContentCache("http") as cc:
+         ~~~~~~~~~~~~^^^^^^^^
+  File "/Users/system/.hermes/cache/uv/archive-v0/v4aMXWF6AZyF-elnxTLhX/lib/python3.13/site-packages/platformio/cache.py", line 31, in __init__
+    os.makedirs(self.cache_dir)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "<frozen os>", line 218, in makedirs
+  File "<frozen os>", line 218, in makedirs
+  File "<frozen os>", line 228, in makedirs
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/system/.cache/buffer-platformio'
+
+============================================================
+
+An unexpected error occurred. Further steps:
+
+* Verify that you have the latest version of PlatformIO using
+  `python -m pip install -U platformio` command
+
+* Try to find answer in FAQ Troubleshooting section
+  https://docs.platformio.org/page/faq/index.html
+
+* Report this problem to the developers
+  https://github.com/platformio/platformio-core/issues
+
+============================================================

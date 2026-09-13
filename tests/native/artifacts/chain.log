@@ -1,0 +1,9 @@
+PASS 2 normal {'occupied_wait': True, 'second_feeding': True, 'front_runout_stop': True, 'front_resume': True, 'two_forward': False}
+FAIL 2 duplicate_token {'occupied_wait': False, 'second_feeding': True, 'front_runout_stop': False, 'front_resume': True, 'two_forward': True}
+PASS 3 normal {'occupied_wait': True, 'second_feeding': True, 'front_runout_stop': True, 'front_resume': True, 'two_forward': False}
+FAIL 3 skip_empty {'occupied_wait': False, 'second_feeding': False, 'front_runout_stop': True, 'front_resume': True, 'two_forward': False}
+FAIL 3 duplicate_token {'occupied_wait': False, 'second_feeding': True, 'front_runout_stop': False, 'front_resume': True, 'two_forward': True}
+PASS 4 normal {'occupied_wait': True, 'second_feeding': True, 'front_runout_stop': True, 'front_resume': True, 'two_forward': False}
+FAIL 4 skip_empty {'occupied_wait': False, 'second_feeding': False, 'front_runout_stop': True, 'front_resume': True, 'two_forward': False}
+FAIL 4 duplicate_token {'occupied_wait': False, 'second_feeding': True, 'front_runout_stop': False, 'front_resume': True, 'two_forward': True}
+TOTAL 8 PASS 3
